@@ -1,0 +1,381 @@
+---
+title: "XGBoost - Growth Analysis & Decision Rule"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## XGBoost - Growth Analysis & Decision Rule
+
+The objevtive is to determine which small customers have **high growth potential** and should remain on **direct delivery routes**.
+
+The goal is to identify small customers with **meaningful** growth who should stay on **direct delivery routes**.
+
+```{r }
+# Load saved models
+# Set the correct working directory
+setwd("C:/Users/anais/OneDrive/Documentos/Swire Coca Cola Capstone")
+
+# Load the models
+xgb_model_cases <- readRDS("xgb_model_delivered_cases.rds")
+xgb_model_gallons <- readRDS("xgb_model_delivered_gallons.rds")
+
+# Ensure XGBoost Model Exists
+if (!exists("xgb_model_cases")) {
+  stop("Error: XGBoost model for delivered_cases not found! Train the model first.")
+}
+
+# Step 1: Split the data into training and test sets (80% for training, 20% for testing)
+set.seed(123)  # For reproducibility
+train_index <- sample(1:nrow(merged_data_xgb), 0.8 * nrow(merged_data_xgb)) 
+train_data <- merged_data_xgb[train_index, ]
+test_data <- merged_data_xgb[-train_index, ]
+
+# Step 2: Clean the test data (remove rows with missing values)
+test_data_clean <- test_data %>%
+  filter(complete.cases(.))  # Ensure no missing values
+
+# Convert to matrix for prediction
+test_matrix <- as.matrix(test_data_clean %>% select(-delivered_cases))  # Exclude the target variable
+
+# Ensure test_matrix is numeric
+test_matrix <- data.matrix(test_matrix)  # Converts the test_matrix to a numeric matrix
+
+# Step 3: Check the structure of test_matrix to make sure it's numeric
+if (!is.numeric(test_matrix)) {
+  stop("Error: test_matrix is not numeric!")
+}
+
+# Step 4: Generate Predictions for Delivered Cases
+merged_data_xgb$predicted_delivered_cases <- predict(xgb_model_cases, newdata = test_matrix)
+
+# Check if the prediction was successful
+head(merged_data_xgb$predicted_delivered_cases)
+
+# Step 5: Calculate Growth Rate for Delivered Cases
+merged_data_xgb <- merged_data_xgb %>%
+  mutate(
+    growth_rate_cases = ((predicted_delivered_cases - delivered_cases) / delivered_cases) * 100
+  )
+
+# Step 6: Categorize Customers Based on Growth Rate
+merged_data_xgb <- merged_data_xgb %>%
+  mutate(
+    customer_decision = case_when(
+      growth_rate_cases > 10 ~ "High Growth (Stay on Red Truck)",
+      TRUE ~ "Stable/Declining (Move to ARTM)"
+    )
+  )
+
+# Step 7: Select Relevant Columns for Analysis
+customer_growth_analysis <- merged_data_xgb %>%
+  select(customer_number, delivered_cases, predicted_delivered_cases, growth_rate_cases, customer_decision)
+
+# Step 8: Display Growth Analysis Table
+print(customer_growth_analysis)
+
+# Step 9: Check how many customers fall into each category
+table(merged_data_xgb$customer_decision)
+
+# Step 10: Find the top-growing customers (excluding those with 0 past deliveries)
+high_growth_customers <- merged_data_xgb %>%
+  filter(customer_decision == "High Growth (Stay on Red Truck)") %>%
+  arrange(desc(growth_rate_cases)) %>%
+  select(
+    customer_number, order_type, delivered_cases, delivered_gallons,
+    frequent_order_type, cold_drink_channel, trade_channel, zip_code,
+    median_delivery_cost, predicted_delivered_cases, customer_decision
+  ) %>%
+  head(10)
+
+print(high_growth_customers)  # Display the table
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+FROM THE OTHER MARKDOWN
+
+---------------- 
+
+
+### Growth Analysis & Decision Rule
+
+The objective is to determine which small customers have **high growth potential** and should remain on **direct delivery routes**.
+
+The goal is to identify small customers with **meaningful** growth who should stay on **direct delivery routes**.
+
+```{r }
+### Growth Analysis & Decision Rule
+# The goal is to identify small customers with **meaningful** growth who should stay on **direct delivery routes**.
+# Load saved models
+xgb_model_cases <- readRDS("xgb_model_delivered_cases.rds")
+xgb_model_gallons <- readRDS("xgb_model_delivered_gallons.rds")
+
+# Ensure XGBoost Model Exists
+if (!exists("xgb_model_cases")) {
+  stop("Error: XGBoost model for delivered_cases not found! Train the model first.")
+}
+
+# Step 1: Ensure the training and test data have the same columns in the same order
+train_matrix <- model.matrix(~ ., data = train_data[, -which(names(train_data) == "delivered_cases")])
+test_matrix <- model.matrix(~ ., data = test_data[, -which(names(test_data) == "delivered_cases")])
+
+# Ensure the column names are in the same order
+colnames(test_matrix) <- colnames(train_matrix)
+
+# Step 2: Check for NaN or Inf values in the test matrix and replace them with 0
+test_matrix[is.na(test_matrix)] <- 0
+test_matrix[!is.finite(test_matrix)] <- 0
+
+# Step 3: Now generate predictions with the fixed test_matrix
+merged_data_xgb$predicted_delivered_cases <- predict(xgb_model_cases, newdata = test_matrix)
+
+# Check if the prediction was successful
+head(merged_data_xgb$predicted_delivered_cases)
+
+# Step 4: Calculate Growth Rate for Delivered Cases
+merged_data_xgb <- merged_data_xgb %>%
+  mutate(
+    growth_rate_cases = ((predicted_delivered_cases - delivered_cases) / delivered_cases) * 100
+  )
+
+# Step 5: Categorize Customers Based on Growth Rate
+merged_data_xgb <- merged_data_xgb %>%
+  mutate(
+    customer_decision = case_when(
+      growth_rate_cases > 10 ~ "High Growth (Stay on Red Truck)",
+      TRUE ~ "Stable/Declining (Move to ARTM)"
+    )
+  )
+
+# Step 6: Select Relevant Columns for Analysis
+customer_growth_analysis <- merged_data_xgb %>%
+  select(customer_number, delivered_cases, predicted_delivered_cases, growth_rate_cases, customer_decision)
+
+# Step 7: Display Growth Analysis Table
+print(customer_growth_analysis)
+```
+
+**Understanding each column**
+
+- customer_number -->	Unique ID for each customer. Helps us track individual businesses.
+- delivered_cases -->	The actual number of delivered cases in the past (historical data).
+- predicted_delivered_cases	--> The number of delivered cases predicted by the XGBoost model for the future.
+- growth_rate_cases	--> The percentage increase or decrease from past deliveries to predicted deliveries. -        - Formula: growth rate = (predicted delivered cases - delivered cases/delivered cases) * 100
+
+
+## Interpreting Business Implications
+```{r }
+# Check how many customers fall into each category
+table(merged_data_xgb$customer_decision)
+```
+Customers are only considered "High Growth" if:
+
+- Their growth rate is above 10%.
+- Their predicted increase is more than 10 cases (so it’s a meaningful increase)
+
+Otherwise, they were labeled "Stable/Declining (Move to ARTM)"
+
+
+```{r }
+#Find the top-growing customers -> This will show the top 10 customers with the highest predicted growth.
+
+# Find the top-growing customers (excluding those with 0 past deliveries)
+high_growth_customers <- merged_data_xgb %>%
+  filter(customer_decision == "High Growth (Stay on Red Truck)") %>%
+  arrange(desc(growth_rate_cases)) %>%
+  select(
+    customer_number, order_type, delivered_cases, delivered_gallons,
+    frequent_order_type, cold_drink_channel, trade_channel, zip_code,
+    median_delivery_cost, predicted_delivered_cases, customer_decision
+  ) %>%
+  head(10)
+
+print(high_growth_customers)  # Display the table
+```
+
+**Note:** A customer is considered "High Growth" if: 
+- 1️⃣ Their predicted increase is meaningful → Let’s set a minimum threshold, like +10 delivered cases.
+- 2️⃣ Growth rate is still above 10% 
+
+**What Does This Mean for the Business?**
+
+Example: If a customer previously ordered 0.0001 cases (essentially no orders) but is now predicted to order 53 cases, it suggests massive growth potential.
+
+If we focus on these customers, we can strategically prioritize resources for direct delivery routes.
+
+```{r }
+# Find the stable/declining customers
+stable_declining_customers <- merged_data_xgb %>%
+  filter(customer_decision == "Stable/Declining (Move to ARTM)") %>%
+  arrange(growth_rate_cases) %>%
+  select(
+    customer_number, order_type, delivered_cases, delivered_gallons,
+    frequent_order_type, cold_drink_channel, trade_channel, zip_code,
+    median_delivery_cost, predicted_delivered_cases, customer_decision
+  ) %>%
+  head(10)
+
+print(stable_declining_customers)  # Display the table
+
+```
+
+**Interpretation**
+
+- These customers have low or no growth in delivered cases.
+- The delivered_cases column mostly shows 0 orders.
+- Their predicted growth rate is low or negative, meaning they should be moved to ARTM.
+
+
+
+
+##### Checking the Distribution of Delivered Cases to find if 10 cases is a meaningful threshold
+```{r }
+# Summary statistics for delivered cases
+summary(merged_data_xgb$delivered_cases)
+
+# Check distribution of delivered cases
+merged_data_xgb %>%
+  ggplot(aes(x = delivered_cases)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "black") +
+  labs(title = "Distribution of Delivered Cases",
+       x = "Delivered Cases",
+       y = "Count of Customers")
+
+
+```
+
+```{r }
+quantile(merged_data_xgb$delivered_cases, probs = c(0.25, 0.5, 0.75, 0.90, 0.95, 0.99))
+
+```
+
+**Result**
+  
+Most customers order very few cases:
+
+- The median number of delivered cases is 9.
+- The mean is 48.62, which suggests that a few large orders are pulling the average up.
+- The third quartile (75th percentile) is 28, meaning 75% of customers order 28 cases or fewer.
+- 90% of customers order 77.25 cases or fewer.
+- Only the top 1% of customers order 788 cases or more.
+
+
+```{r }
+# Find the average predicted increase
+mean(merged_data_xgb$predicted_delivered_cases - merged_data_xgb$delivered_cases, na.rm = TRUE)
+```
+**Result**
+
+- The average predicted increase in delivered cases is -4.08, meaning that, on average, deliveries are expected to decrease rather than increase.
+
+- This suggests that growth predictions are identifying a relatively small number of businesses with high growth potential, while most customers are declining or staying stable.
+
+**Reason behind the growth %** 
+
+- 10% growth might not be enough – A small customer going from 1 to 1.1 cases isn’t really "high growth."
+- Focus on real growth – Look at customers ordering at least 10 cases and growing by 10+ cases.
+
+
+# Summary of XGBoost Findings
+
+**1) Prediction Performance**
+
+- XGBoost was used to predict delivered cases and delivered gallons based on customer data.
+- RMSE improved after segmentation, indicating better prediction accuracy.
+
+**2) Customer Growth Analysis**
+
+- We identified which small customers have high growth potential and should stay on direct delivery routes (Red Truck).
+- Customers with a growth rate above 10% and at least 10 additional cases were classified as "High Growth".
+- Others were labeled as "Stable/Declining (Move to ARTM)".
+
+**3)Key Insights from Customer Segments**
+
+- The majority of customers fell into the Stable/Declining category.
+- Some customers showed small predicted growth, but it wasn’t significant enough to justify staying on Red Truck.
+- Most "High Growth" customers had a noticeable increase in predicted delivered cases.
+
+**4)Business Recommendations**
+
+- Focus on High Growth customers for direct delivery (Red Truck).
+- Move Stable/Declining customers to ARTM to optimize resources.
+- Consider reviewing low-volume customers with high growth rates to ensure their potential is meaningful.
+
+
+
+
+
+
+
+
+
+
+
+SAVING THE DATA
+
+```{r }
+saveRDS(merged_data_xgb, "merged_data_xgb.rds")
+
+# Saving Trained XGBoost Models
+saveRDS(model_cases$model, "xgb_model_cases.rds")
+saveRDS(model_gallons$model, "xgb_model_gallons.rds")
+```
+
+```{r }
+
+
+```
+```{r }
+
+
+```
+
+```{r }
+
+```
+
+
+```{r }
+
+```
+```{r }
+
+```
+
+```{r }
+
+```
+
+
+```{r }
+# Step 11: Check the distribution of delivered cases to see if 10 cases is a meaningful threshold
+summary(merged_data_xgb$delivered_cases)
+
+# Check distribution of delivered cases
+merged_data_xgb %>%
+  ggplot(aes(x = delivered_cases)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "black") +
+  labs(title = "Distribution of Delivered Cases",
+       x = "Delivered Cases",
+       y = "Count of Customers")
+
+# Summary statistics for delivered cases
+quantile(merged_data_xgb$delivered_cases, probs = c(0.25, 0.5, 0.75, 0.90, 0.95, 0.99))
+
+# Step 12: Find the average predicted increase
+mean(merged_data_xgb$predicted_delivered_cases - merged_data_xgb$delivered_cases, na.rm = TRUE)
+```
+
