@@ -19,7 +19,14 @@ My personal contributions to the project are outlined in the following files in 
 R Programming
 
 # Key Findings
-### 1) High-Growth Customers: 
+
+### 1) XGBoost Segmentation: 
+The segmentation analysis was performed using XGBoost, a machine learning model, to predict customer behavior based on historical data. Delivered Cases was chosen as the target variable instead of Delivered Gallons because XGBoost showed a better performance, reducing the RMSE from 17 to 11. This improvement in model accuracy ensures that Swire Coca-Cola can more confidently identify high-potential customers for red truck delivery and better understand their logistics needs.
+
+**Distribution of customer segmentation, based on low, medium, and high growth customer prediction.**
+![EDA and Modeling](https://github.com/anaiscorral/Swire-Coca-Cola/blob/main/EDA%20and%20modeling.png)
+
+### 2) High-Growth Customers: 
 The analysis identified key characteristics of high-growth customers. These include:
 
 - Top Channel: Dining (specifically in restaurants or related locations)
@@ -34,8 +41,12 @@ The analysis identified key characteristics of high-growth customers. These incl
 
 These insights are valuable because they help Swire Coca-Cola pinpoint high-growth customers, allowing them to tailor marketing and sales strategies for this segment. By understanding which channels and order types are most commonly used, Swire can focus on these characteristics to optimize delivery and marketing efforts, specifically targeting customers who are most likely to convert to direct red truck delivery.
 
-### 2) XGBoost Segmentation: 
-The segmentation analysis was performed using XGBoost, a machine learning model, to predict customer behavior based on historical data. Delivered Cases was chosen as the target variable instead of Delivered Gallons because XGBoost showed a better performance, reducing the RMSE from 17 to 11. This improvement in model accuracy ensures that Swire Coca-Cola can more confidently identify high-potential customers for red truck delivery and better understand their logistics needs.
+![Findings](https://github.com/anaiscorral/Swire-Coca-Cola/blob/main/Findings.png)
+![Findings2](https://github.com/anaiscorral/Swire-Coca-Cola/blob/main/Findings2.png)
+![Findings3](https://github.com/anaiscorral/Swire-Coca-Cola/blob/main/Findings3.png)
+
+
+
 
 
 
